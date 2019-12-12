@@ -1,0 +1,35 @@
+﻿@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Página inicial da WebApi</title>
+</head>
+<body>
+    <h2>
+        Links de exemplos para consumir a API:
+        <br />
+        Clique em voltar para testar os outros links
+    </h2>
+    <br />
+    <div>
+        <h4>Para realizar a listagem dos contatos adicionados clique aqui: @Html.ActionLink("/Contatos/Lista?page=0&size=50", "Lista", "Contatos", new { page = "0", size="50" }, null)</h4>
+    </div>
+    <div>
+        <h4>Para visualizar o registro de um contato adicionado clique aqui: @Html.ActionLink("/Contatos/Detalhes?id=1", "Detalhes", "Contatos", new { id = 1 }, null)</h4>
+    </div>
+    <div>
+        <h4>Para criar um novo registro de contato clique aqui: @Html.ActionLink("/Contatos/Criar?Nome=Delci&Canal=email&Valor=delci_procopio@hotmail.com&Obs=DesafioMetaWebAPI", "Criar", "Contatos", new { Nome = "Delci", Canal = "email", Valor = "delci_procopio@hotmail.com", Obs = "DesafioMetaWebAPI" }, null)</h4>
+    </div>
+    <div>
+        <h4>Para alterar um registro de um contato em específico clique aqui: @Html.ActionLink("/Contatos/Editar?ID=5&Nome=Fulano&Canal=email&Valor=fulano@hotmail.com&Obs=DesafioMetaWebAPI", "Editar", "Contatos", new { ID = "5", Nome = "Fulano", Canal = "email", Valor = "fulano@hotmail.com", Obs = "DesafioMetaWebAPI" }, null)</h4>
+    </div>
+    <div>
+        <h4>Para deletar um registro de um contato em específico clique aqui: @Html.ActionLink("/Contatos/Deletar?ID=11", "Editar", "Contatos", new { ID = "11" }, null)</h4>
+    </div>
+</body>
+</html>

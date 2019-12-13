@@ -1,30 +1,22 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Entity;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
+using System.Web;
+using System.Web.Http;
 using System.Web.Mvc;
 using DesafioMetaWebApi.Data;
 using DesafioMetaWebApi.Models;
 
 namespace DesafioMetaWebApi.Controllers
 {
-    public class ContatosController : Controller
+    [System.Web.Http.Route("Contatos")]
+    public class ContatosController : ApiController
     {
         private BaseContext db = new BaseContext();
-
-        /// <summary>
-        /// Retorna a View com links de exemplo de como comsumir a API
-        /// </summary>
-        /// <returns>View</returns>
-
-        // GET: /Contatos
-        // GET: /Contatos/Index
-        [HttpGet]
-        public ActionResult Index()
-        {
-            return View();
-        }
 
         /// <summary>
         /// Retorna uma lista de registros de acordo com o informado nos parâmetros
@@ -37,11 +29,21 @@ namespace DesafioMetaWebApi.Controllers
 
         // GET: /Contatos/Lista
         // GET: /Contatos/Lista?page=0&size=50
-        [HttpGet]
-        public ActionResult Lista(int page = 0, int size = 10)
+        [System.Web.Http.HttpGet]
+        [System.Web.Http.Route("Contatos/Lista")]
+        public async Task<List<Contatos>> Lista(int Page = 0, int Size = 10)
         {
-            List<Contatos> resultado = db.Contatos.OrderBy(c => c.ID).Skip(page * size).Take(size).ToList();
-            return Json(resultado, JsonRequestBehavior.AllowGet);
+            bool usuarioValido = false;
+            try
+            {
+                usuarioValido = Funcoes.ValidaUsuario(Request.Headers.GetValues("Authorization").FirstOrDefault(), Request.Headers.GetValues("HTTP_AUTHORIZATION").FirstOrDefault());
+                if (usuarioValido) return await db.Contatos.OrderBy(c => c.ID).Skip(Page * Size).Take(Size).ToListAsync(); else throw new Exception("Unauthorized");
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message == "Unauthorized") throw new HttpException(401, "Unauthorized");
+                throw new HttpException(500, "Internal Server Error");
+            }
         }
 
         /// <summary>
@@ -50,15 +52,24 @@ namespace DesafioMetaWebApi.Controllers
         /// <param name="id"></param>
         /// <returns></returns>
 
-        // GET: /Contatos/Detalhes/1
         // GET: /Contatos/Detalhes?id=1
-        [HttpGet]
-        public ActionResult Detalhes(int? id)
+        [System.Web.Http.HttpGet]
+        [System.Web.Http.Route("Contatos/Detalhes")]
+        public async Task<List<Contatos>> Detalhes(int ID = -1)
         {
-            if (id == null) return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
-            Contatos resultado = db.Contatos.Find(id);
-            if (resultado == null) return new HttpStatusCodeResult(HttpStatusCode.NotFound);
-            return Json(resultado, JsonRequestBehavior.AllowGet);
+            bool usuarioValido = false;
+            try
+            {
+                usuarioValido = Funcoes.ValidaUsuario(Request.Headers.GetValues("Authorization").FirstOrDefault(), Request.Headers.GetValues("HTTP_AUTHORIZATION").FirstOrDefault());
+                if (ID == -1 || db.Contatos.Find(ID) == null) throw new Exception("Bad Request");
+                if (usuarioValido) return await db.Contatos.Where(co => co.ID == ID).ToListAsync(); else throw new Exception("Unauthorized");
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message == "Unauthorized") throw new HttpException(401, "Unauthorized");
+                if (ex.Message == "Bad Request") throw new HttpException(400, "Bad Request");
+                throw new HttpException(500, "Internal Server Error");
+            }
         }
 
         /// <summary>
@@ -67,17 +78,32 @@ namespace DesafioMetaWebApi.Controllers
         /// <param name="contato"></param>
         /// <returns></returns>
 
-        // POST: /Contatos/Criar?Nome=Delci&Canal=email&Valor=delci_procopio@hotmail.com&Obs=DesafioMetaWebAPI
-        [HttpGet]
-        public ActionResult Criar([Bind(Include = "Nome,Canal,Valor,Obs")] Contatos contato)
+        // POST: /Contatos/Criar?Nome=Ciclano&Canal=email&Valor=ciclano@hotmail.com&Obs=DesafioMetaWebAPI
+        // POST: /Contatos/Criar?Nome=Beltrano&Canal=email&Valor=Beltrano@hotmail.com&Obs=DesafioMetaWebAPI
+        [System.Web.Http.HttpPost]
+        [System.Web.Http.Route("Contatos/Criar")]
+        public HttpStatusCodeResult Criar(string Nome = "", string Canal = "", string Valor = "", string Obs = "")
         {
-            if (ModelState.IsValid)
+            bool usuarioValido = false;
+            try
             {
-                db.Contatos.Add(contato);
-                db.SaveChanges();
-                return RedirectToAction("Lista");
+                usuarioValido = Funcoes.ValidaUsuario(Request.Headers.GetValues("Authorization").FirstOrDefault(), Request.Headers.GetValues("HTTP_AUTHORIZATION").FirstOrDefault());
+                if (usuarioValido)
+                {
+                    if (Nome == "" || db.Contatos.FirstOrDefault(co => co.Nome == Nome) != null || !ModelState.IsValid) throw new Exception("Bad Request");
+                    Contatos contato = new Contatos() { Nome = Nome, Canal = Canal, Valor = Valor, Obs = Obs };
+                    db.Contatos.Add(contato);
+                    db.SaveChanges();
+                    return new HttpStatusCodeResult(HttpStatusCode.OK, "OK");
+                }
+                else throw new Exception("Unauthorized");
             }
-            return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            catch (Exception ex)
+            {
+                if (ex.Message == "Unauthorized") return new HttpStatusCodeResult(HttpStatusCode.Unauthorized, "Unauthorized");
+                if (ex.Message == "Bad Request") return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Bad Request");
+                return new HttpStatusCodeResult(HttpStatusCode.InternalServerError, "Internal Server Error");
+            }
         }
 
         /// <summary>
@@ -86,20 +112,33 @@ namespace DesafioMetaWebApi.Controllers
         /// <param name="contato"></param>
         /// <returns></returns>
 
-        // GET: /Contatos/Editar?ID=5&Nome=Fulano&Canal=email&Valor=delci_procopio@hotmail.com&Obs=DesafioMetaWebAPI
-        [HttpGet]
-        public ActionResult Editar([Bind(Include = "ID,Nome,Canal,Valor,Obs")] Contatos contato)
+        // PUT: /Contatos/Editar?ID=5&Nome=Taurano&Canal=email&Valor=taurano@hotmail.com&Obs=DesafioMetaWebAPI
+        [System.Web.Http.HttpPut]
+        [System.Web.Http.Route("Contatos/Editar")]
+        public HttpStatusCodeResult Editar(int ID = -1, string Nome = "", string Canal = "", string Valor = "", string Obs = "")
         {
-            if (ModelState.IsValid)
+            bool usuarioValido = false;
+            try
             {
-                Contatos item = db.Contatos.Find(contato.ID);
-                if (item == null) return new HttpStatusCodeResult(HttpStatusCode.NotFound);
-                db.Contatos.Remove(item);
-                db.Contatos.Add(contato);
-                db.SaveChanges();
-                return RedirectToAction("Lista");
+                usuarioValido = Funcoes.ValidaUsuario(Request.Headers.GetValues("Authorization").FirstOrDefault(), Request.Headers.GetValues("HTTP_AUTHORIZATION").FirstOrDefault());
+                if (usuarioValido)
+                {
+                    Contatos contato = db.Contatos.Find(ID);
+                    if (Nome == "" || ID == -1 || contato == null || !ModelState.IsValid) throw new Exception("Bad Request");
+                    db.Contatos.Remove(contato);
+                    contato = new Contatos() { Nome = Nome, Canal = Canal, Valor = Valor, Obs = Obs };
+                    db.Contatos.Add(contato);
+                    db.SaveChanges();
+                    return new HttpStatusCodeResult(HttpStatusCode.OK, "OK");
+                }
+                else throw new Exception("Unauthorized");
             }
-            return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            catch (Exception ex)
+            {
+                if (ex.Message == "Unauthorized") return new HttpStatusCodeResult(HttpStatusCode.Unauthorized, "Unauthorized");
+                if (ex.Message == "Bad Request") return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Bad Request");
+                return new HttpStatusCodeResult(HttpStatusCode.InternalServerError, "Internal Server Error");
+            }
         }
 
         /// <summary>
@@ -108,15 +147,31 @@ namespace DesafioMetaWebApi.Controllers
         /// <param name="id"></param>
         /// <returns></returns>
 
-        // GET: /Contatos/Deletar?id=11
-        [HttpGet]
-        public ActionResult Deletar(int id)
+        // DELETE: /Contatos/Deletar?id=11
+        [System.Web.Http.HttpDelete]
+        [System.Web.Http.Route("Contatos/Deletar")]
+        public HttpStatusCodeResult Deletar(int ID = -1)
         {
-            Contatos contato = db.Contatos.Find(id);
-            if (contato == null) return new HttpStatusCodeResult(HttpStatusCode.NotFound);
-            db.Contatos.Remove(contato);
-            db.SaveChanges();
-            return RedirectToAction("Lista");
+            bool usuarioValido = false;
+            try
+            {
+                usuarioValido = Funcoes.ValidaUsuario(Request.Headers.GetValues("Authorization").FirstOrDefault(), Request.Headers.GetValues("HTTP_AUTHORIZATION").FirstOrDefault());
+                if (usuarioValido)
+                {
+                    Contatos contato = db.Contatos.Find(ID);
+                    if (ID == -1 || contato == null || !ModelState.IsValid) throw new Exception("Bad Request");
+                    db.Contatos.Remove(contato);
+                    db.SaveChanges();
+                    return new HttpStatusCodeResult(HttpStatusCode.OK, "OK");
+                }
+                else throw new Exception("Unauthorized");
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message == "Unauthorized") return new HttpStatusCodeResult(HttpStatusCode.Unauthorized, "Unauthorized");
+                if (ex.Message == "Bad Request") return new HttpStatusCodeResult(HttpStatusCode.BadRequest, "Bad Request");
+                return new HttpStatusCodeResult(HttpStatusCode.InternalServerError, "Internal Server Error");
+            }
         }
 
         /// <summary>
